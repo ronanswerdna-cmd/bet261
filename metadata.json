@@ -1,6 +1,6 @@
 {
-  "name": "Bet261 Predictor",
-  "description": "Logiciel de prédictions en temps réel pour Aviator et Football Virtuel sur la plateforme Bet261 Madagascar.",
+  "name": "Predi261 Mada by OXW Creativ",
+  "description": "Logiciel de prédictions en temps réel pour Aviator et Football Virtuel sur la plateforme Predi261.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

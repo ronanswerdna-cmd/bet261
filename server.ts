@@ -145,12 +145,12 @@ async function startServer() {
       writeDb(USERS_FILE, users);
 
       // Trigger automatic simulated SMS to both numbers as requested
-      const smsMessage = `[Bet261 App] Nouvelle inscription : ${name} CLI, Tél : ${phone}, Email: ${email}. En attente de choix de formule.`;
-      sendSmsSimulated("+261330910425", smsMessage);
+      const smsMessage = `[Predi261 Mada] Nouvelle inscription : ${name} CLI, Tél : ${phone}, Email: ${email}. En attente de choix de formule.`;
+      sendSmsSimulated("+261387203022", smsMessage);
       sendSmsSimulated("+261387203022", smsMessage);
 
       // Trigger rich HTML inscription notification email to 'ronanswerdna@gmail.com'
-      const emailSubject = `[Inscription Bet261] Nouvel utilisateur inscrit : ${name}`;
+      const emailSubject = `[Inscription Predi261] Nouvel utilisateur inscrit : ${name}`;
       const emailHtml = `
         <!DOCTYPE html>
         <html>
