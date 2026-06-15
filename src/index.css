@@ -1,0 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", "Inter", sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* Custom animations/glows if desired */
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@layer utilities {
+  .glow-text-green {
+    text-shadow: 0 0 10px rgba(34, 197, 94, 0.5), 0 0 20px rgba(34, 197, 94, 0.2);
+  }
+  .glow-text-red {
+    text-shadow: 0 0 10px rgba(239, 68, 68, 0.5), 0 0 20px rgba(239, 68, 68, 0.2);
+  }
+  .glow-text-gold {
+    text-shadow: 0 0 10px rgba(234, 179, 8, 0.5), 0 0 20px rgba(234, 179, 8, 0.2);
+  }
+}
+
+/* Custom scrollbar and ambient styles */
+body {
+  background-color: #f3f4f6;
+  color: #111827;
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
