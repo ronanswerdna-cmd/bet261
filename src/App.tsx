@@ -219,6 +219,15 @@ export default function App() {
   });
   const [regError, setRegError] = useState<string | null>(null);
 
+  // Connexion (Login) input states
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [loginForm, setLoginForm] = useState({
+    username: "",
+    password: ""
+  });
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isLoginLoading, setIsLoginLoading] = useState<boolean>(false);
+
   // VIP Subscription inputs
   const [selectedPlan, setSelectedPlan] = useState<'1month' | '3months'>('1month');
   const [paymentNetwork, setPaymentNetwork] = useState<'MVOLA' | 'AIRTEL'>('MVOLA');
@@ -269,6 +278,7 @@ export default function App() {
     sms: []
   });
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState<boolean>(false);
+  const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null);
 
   // Retrieve current user on mount & setup live clock
   useEffect(() => {
@@ -419,6 +429,48 @@ export default function App() {
       runRegistrationLoading(data.user);
     } catch (err) {
       setRegError("Impossible de joindre le serveur de base de données.");
+      synth.playCrash();
+    }
+  };
+
+  // Login submit call
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError(null);
+    setIsLoginLoading(true);
+
+    const { username, password } = loginForm;
+    if (!username || !password) {
+      setLoginError("Veuillez remplir tous les champs.");
+      setIsLoginLoading(false);
+      synth.playCrash();
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(loginForm)
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setLoginError(data.error || "Identifiant ou mot de passe incorrect.");
+        setIsLoginLoading(false);
+        synth.playCrash();
+        return;
+      }
+
+      // Login successful!
+      setCurrentUser(data.user);
+      localStorage.setItem("bet261_current_user", JSON.stringify(data.user));
+      synth.playSuccess();
+      setIsLoginLoading(false);
+      fetchSystemLogs();
+    } catch (err) {
+      setLoginError("Erreur de connexion au serveur.");
+      setIsLoginLoading(false);
       synth.playCrash();
     }
   };
@@ -933,113 +985,209 @@ export default function App() {
                   L'ALGORITHME DE PREDICTION SPÉCIALISÉ MADAGASCAR
                 </h2>
                 <p className="text-xs text-gray-400 leading-relaxed">
-                  Accédez instantanément à nos signaux de cotes et au radar de hausse de l'Aviator. Inscription requise pour charger vos jetons de sécurité.
+                  Accédez instantanément à nos signaux de cotes et au radar de hausse de l'Aviator. Connexion requise pour charger vos jetons de sécurité.
                 </p>
               </div>
             </div>
 
-            {/* Registration Form Widget */}
-            <form onSubmit={handleRegisterSubmit} className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
-              <div className="border-b border-slate-800 pb-3 flex items-center gap-2">
-                <User className="w-5 h-5 text-[#39b54a]" />
-                <h3 className="text-sm font-black text-white uppercase tracking-wider">
-                  S'inscrire et s'activer
-                </h3>
-              </div>
+            {/* Auth Mode Tabs Switches */}
+            <div className="grid grid-cols-2 bg-slate-900 p-1.5 rounded-2xl border border-slate-800">
+              <button
+                type="button"
+                onClick={() => { setAuthMode('login'); setLoginError(null); }}
+                className={`py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                  authMode === 'login'
+                    ? "bg-[#39b54a] text-black shadow-md font-black"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                Connexion
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthMode('register'); setRegError(null); }}
+                className={`py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                  authMode === 'register'
+                    ? "bg-[#39b54a] text-black shadow-md font-black"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                Inscription
+              </button>
+            </div>
 
-              {regError && (
-                <div className="bg-rose-950/40 border border-rose-900/60 p-3 rounded-xl text-rose-300 text-xs flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>{regError}</span>
-                </div>
-              )}
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-[10px] uppercase font-black text-gray-400 tracking-wider mb-1.5">
-                    Nom Complet du client
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={regForm.name}
-                    onChange={(e) => setRegForm({ ...regForm, name: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-[#39b54a]"
-                    placeholder="Ex: Ratsimazafy Jean"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] uppercase font-black text-gray-400 tracking-wider mb-1.5">
-                    Identifiant / Pseudo
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={regForm.username}
-                    onChange={(e) => setRegForm({ ...regForm, username: e.target.value.toLowerCase().replace(/\s/g, "") })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-[#39b54a]"
-                    placeholder="Ex: monpseudo261"
-                  />
+            {authMode === 'login' ? (
+              /* Connexion Login Widget */
+              <form onSubmit={handleLoginSubmit} className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+                <div className="border-b border-slate-800 pb-3 flex items-center gap-2">
+                  <User className="w-5 h-5 text-[#39b54a]" />
+                  <h3 className="text-sm font-black text-white uppercase tracking-wider">
+                    Se connecter à Bet261 Predict
+                  </h3>
                 </div>
 
-                <div>
-                  <label className="block text-[10px] uppercase font-black text-gray-400 tracking-wider mb-1.5">
-                    Téléphone principal
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={regForm.phone}
-                    onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-[#39b54a]"
-                    placeholder="Ex: +261 33 09 104 25"
-                  />
+                {loginError && (
+                  <div className="bg-rose-950/40 border border-rose-900/60 p-3 rounded-xl text-rose-300 text-xs flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{loginError}</span>
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] uppercase font-black text-gray-400 tracking-wider mb-1.5">
+                      Identifiant ou Nom d'utilisateur
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={loginForm.username}
+                      onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-[#39b54a]"
+                      placeholder="Ex: monpseudo261 ou Ronan Ra"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase font-black text-gray-400 tracking-wider mb-1.5">
+                      Mot de passe / Code spécial Admin
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={loginForm.password}
+                      onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-[#39b54a]"
+                      placeholder="••••••••"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-[10px] uppercase font-black text-gray-400 tracking-wider mb-1.5">
-                    Adresse Email de facturation
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={regForm.email}
-                    onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-[#39b54a]"
-                    placeholder="Ex: nom@domaine.com"
-                  />
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={isLoginLoading}
+                    className="w-full bg-[#39b54a] hover:bg-[#2f973c] active:scale-[0.99] text-black font-black text-xs uppercase tracking-wider py-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-emerald-500/10 disabled:opacity-50"
+                  >
+                    {isLoginLoading ? (
+                      <span>CONNEXION EN COURS...</span>
+                    ) : (
+                      <>
+                        <span>SE CONNECTER</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
                 </div>
 
-                <div>
-                  <label className="block text-[10px] uppercase font-black text-gray-400 tracking-wider mb-1.5">
-                    Mot de passe secret
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={regForm.password}
-                    onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-[#39b54a]"
-                    placeholder="••••••••"
-                  />
+                <p className="text-[10px] text-gray-500 text-center leading-normal">
+                  Saisissez vos identifiants pour vous reconnecter et accéder à vos prédictions et votre formule active.
+                </p>
+              </form>
+            ) : (
+              /* Registration Form Widget */
+              <form onSubmit={handleRegisterSubmit} className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+                <div className="border-b border-slate-800 pb-3 flex items-center gap-2">
+                  <User className="w-5 h-5 text-[#39b54a]" />
+                  <h3 className="text-sm font-black text-white uppercase tracking-wider">
+                    S'inscrire et s'activer
+                  </h3>
                 </div>
-              </div>
 
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full bg-[#39b54a] hover:bg-[#2f973c] active:scale-[0.99] text-black font-black text-xs uppercase tracking-wider py-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-emerald-500/10"
-                >
-                  <span>CRÉER MON COMPTE SÉCURISÉ</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
+                {regError && (
+                  <div className="bg-rose-950/40 border border-rose-900/60 p-3 rounded-xl text-rose-300 text-xs flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{regError}</span>
+                  </div>
+                )}
 
-              <p className="text-[10px] text-gray-500 text-center leading-normal">
-                En créant un compte, vous déclarez accepter nos conditions générales d'accès aux prédictions de jeux virtuels en partenariat avec Bet261.
-              </p>
-            </form>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] uppercase font-black text-gray-400 tracking-wider mb-1.5">
+                      Nom Complet du client
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={regForm.name}
+                      onChange={(e) => setRegForm({ ...regForm, name: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-[#39b54a]"
+                      placeholder="Ex: Ratsimazafy Jean"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase font-black text-gray-400 tracking-wider mb-1.5">
+                      Identifiant / Pseudo
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={regForm.username}
+                      onChange={(e) => setRegForm({ ...regForm, username: e.target.value.toLowerCase().replace(/\s/g, "") })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-[#39b54a]"
+                      placeholder="Ex: monpseudo261"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase font-black text-gray-400 tracking-wider mb-1.5">
+                      Téléphone principal
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={regForm.phone}
+                      onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-[#39b54a]"
+                      placeholder="Ex: +261 33 09 104 25"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase font-black text-gray-400 tracking-wider mb-1.5">
+                      Adresse Email de facturation
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={regForm.email}
+                      onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-[#39b54a]"
+                      placeholder="Ex: nom@domaine.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase font-black text-gray-400 tracking-wider mb-1.5">
+                      Mot de passe secret
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={regForm.password}
+                      onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-[#39b54a]"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    className="w-full bg-[#39b54a] hover:bg-[#2f973c] active:scale-[0.99] text-black font-black text-xs uppercase tracking-wider py-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-emerald-500/10"
+                  >
+                    <span>CRÉER MON COMPTE SÉCURISÉ</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <p className="text-[10px] text-gray-500 text-center leading-normal">
+                  En créant un compte, vous déclarez accepter nos conditions générales d'accès aux prédictions de jeux virtuels en partenariat avec Bet261.
+                </p>
+              </form>
+            )}
           </div>
         )}
 
@@ -1081,8 +1229,284 @@ export default function App() {
           </div>
         )}
 
+        {/* ==================== SPECIAL ADMIN DASHBOARD (Ronan Ra Special Auth) ==================== */}
+        {currentUser && currentUser.status === "admin" && (
+          <div className="space-y-4 animate-fade-in text-xs">
+            {/* Admin Header Welcome Area */}
+            <div className="bg-gradient-to-r from-slate-900 to-slate-950 border border-slate-800 rounded-3xl p-5 shadow-xl relative overflow-hidden">
+              <div className="absolute right-0 top-0 p-6 opacity-10 font-bold select-none text-7xl text-[#39b54a]">
+                👑
+              </div>
+              <div className="space-y-1 z-10 relative">
+                <span className="inline-block bg-[#39b54a]/10 text-[#39b54a] font-mono text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
+                  Session Administrateur active
+                </span>
+                <h2 className="text-lg font-black text-white">
+                  Tableau de bord : Ronan Ra
+                </h2>
+                <p className="text-[11px] text-gray-400">
+                  Validez les dépôts des clients, gérez les inscriptions et suivez les logs SMS/Emails en temps réel.
+                </p>
+              </div>
+
+              <div className="flex gap-2 mt-4 pt-4 border-t border-slate-850">
+                <button
+                  type="button"
+                  onClick={fetchSystemLogs}
+                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-[#39b54a]" />
+                  <span>Actualiser les données</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.removeItem("bet261_current_user");
+                    setCurrentUser(null);
+                    synth.playPing();
+                  }}
+                  className="bg-rose-950/85 hover:bg-rose-900 text-rose-300 font-bold py-2.5 px-4 rounded-xl transition-all border border-rose-900/40"
+                >
+                  Déconnexion 🚪
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Stats overview panel */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-slate-900 border border-slate-800 p-3 rounded-2xl text-center">
+                <span className="text-[9px] uppercase font-black tracking-wider text-gray-500 block mb-0.5">Inscrits</span>
+                <strong className="text-sm text-white font-mono">{systemLogs.users.length}</strong>
+              </div>
+              <div className="bg-slate-900 border border-slate-800 p-3 rounded-2xl text-center">
+                <span className="text-[9px] uppercase font-black tracking-wider text-amber-500 block mb-0.5">En Attente</span>
+                <strong className="text-sm text-amber-400 font-mono">
+                  {systemLogs.users.filter(u => u.status === 'pending_verification').length}
+                </strong>
+              </div>
+              <div className="bg-slate-900 border border-slate-800 p-3 rounded-2xl text-center">
+                <span className="text-[9px] uppercase font-black tracking-wider text-emerald-500 block mb-0.5">Actifs VIP</span>
+                <strong className="text-sm text-emerald-400 font-mono">
+                  {systemLogs.users.filter(u => u.status === 'verified').length}
+                </strong>
+              </div>
+            </div>
+
+            {/* Pending Verifications lists */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-3">
+              <div className="flex justify-between items-center border-b border-slate-850 pb-2">
+                <h3 className="font-black text-white text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                  Demandes de validation VIP
+                </h3>
+                <span className="text-[9px] font-mono text-gray-500">Fil d'attente</span>
+              </div>
+
+              {systemLogs.users.filter(u => u.status === 'pending_verification').length === 0 ? (
+                <p className="text-center text-gray-500 py-6 italic text-[11px]">
+                  Aucune demande de validation en attente pour le moment.
+                </p>
+              ) : (
+                <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                  {systemLogs.users.filter(u => u.status === 'pending_verification').map((usr) => (
+                    <div key={usr.id} className="p-3 bg-slate-950 border border-slate-850 rounded-2xl space-y-2">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <strong className="text-white text-xs block">{usr.name}</strong>
+                          <span className="text-[10px] text-gray-400 font-mono">@{usr.username} • Tel: {usr.phone}</span>
+                        </div>
+                        <span className="text-[9px] bg-amber-950 text-amber-400 border border-amber-800 px-2 py-0.5 rounded-full font-black uppercase">
+                          En validation
+                        </span>
+                      </div>
+
+                      {usr.paymentDetails && (
+                        <div className="p-2 bg-slate-900/60 rounded-xl text-[10px] text-gray-300 font-mono border border-slate-850/50 space-y-0.5">
+                          <div><strong>Formule :</strong> {usr.paymentDetails.planName} ({usr.paymentDetails.price} Ar)</div>
+                          <div><strong>Réseau :</strong> <span className={usr.paymentDetails.network === 'MVOLA' ? 'text-yellow-400' : 'text-rose-400'}>{usr.paymentDetails.network}</span></div>
+                          <div><strong>Réf :</strong> <span className="text-emerald-400 font-bold">{usr.paymentDetails.transactionRef}</span></div>
+                          <div><strong>Expéditeur :</strong> {usr.paymentDetails.senderPhone}</div>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await handleAdminBypassAction(usr.id, "approve");
+                          }}
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-wider py-1.5 px-2 rounded-xl"
+                        >
+                          Approuver ✅ (VIP)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await handleAdminBypassAction(usr.id, "reject");
+                          }}
+                          className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-black text-[10px] uppercase tracking-wider py-1.5 px-2 rounded-xl"
+                        >
+                          Rejeter ❌
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* List of other enrolled users */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-3">
+              <div className="border-b border-slate-850 pb-2">
+                <h3 className="font-black text-white text-[11px] uppercase tracking-wider">
+                  Tous les comptes clients
+                </h3>
+              </div>
+
+              {systemLogs.users.filter(u => u.status !== 'pending_verification').length === 0 ? (
+                <p className="text-center text-gray-500 py-4 italic text-[11px]">
+                  Aucun autre compte enregistré.
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {systemLogs.users.filter(u => u.status !== 'pending_verification').map((usr) => (
+                    <div key={usr.id} className="p-2.5 bg-slate-950 border border-slate-850/50 rounded-xl flex items-center justify-between">
+                      <div>
+                        <strong className="text-gray-200 text-xs block leading-tight">{usr.name}</strong>
+                        <span className="text-[9px] text-gray-500 font-mono">@{usr.username} • Tel: {usr.phone}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[9px] font-black font-mono border px-2 py-0.5 rounded-full uppercase ${
+                          usr.status === "verified" ? "bg-emerald-950 border-emerald-850 text-emerald-400" :
+                          usr.status === "rejected" ? "bg-rose-950 border-rose-900 text-rose-450" :
+                          "bg-slate-900 border-slate-800 text-gray-400"
+                        }`}>
+                          {usr.status === "verified" ? "VIP" : usr.status}
+                        </span>
+                        
+                        {usr.status !== "verified" && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await handleAdminBypassAction(usr.id, "approve");
+                            }}
+                            className="text-[9px] bg-slate-800 hover:bg-slate-700 text-emerald-400 px-2 py-0.5 rounded border border-slate-700 transition"
+                          >
+                            Activer
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Simulated Live Communications Logs (Email dispatcher list) */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-3">
+              <div className="flex justify-between items-center border-b border-slate-850 pb-2">
+                <h3 className="font-black text-white text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                  Logs de communication simulée
+                </h3>
+                <span className="text-[9px] font-mono text-gray-500">Live logs</span>
+              </div>
+
+              {/* Virtual Email inbox list */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] uppercase font-black text-gray-400 tracking-wider font-mono block">
+                    e-mails de notification (ronanswerdna@gmail.com)
+                  </span>
+                  <span className="text-[8px] bg-[#39b54a]/10 text-[#39b54a] font-mono px-2 py-0.5 rounded font-black">
+                    Mode Simulation + Réel
+                  </span>
+                </div>
+
+                {/* Banner reminding about SMTP config */}
+                <div className="p-3 bg-blue-950/30 border border-blue-900/40 rounded-2xl text-[10px] text-blue-300 leading-relaxed">
+                  💡 <strong>Astuce de réception :</strong> Si vous ne recevez pas les e-mails sur votre boîte Gmail <strong>ronanswerdna@gmail.com</strong>, assurez-vous d'avoir configuré vos identifiants SMTP (comme <code>SMTP_USER</code> et <code>SMTP_PASS</code>) dans les Variables d'Environnement / Paramètres secrets de votre espace. En attendant la configuration, **tous les emails envoyés sont accessibles en temps réel ci-dessous. Vous pouvez cliquer sur un e-mail pour le déplier et cliquer directement sur les boutons de validation !**
+                </div>
+                
+                {systemLogs.emails.length === 0 ? (
+                  <p className="text-[10px] text-gray-500 italic p-2 bg-slate-950 rounded">
+                    Aucun e-mail d'alerte émis pour le moment.
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                    {systemLogs.emails.map((mail) => {
+                      const isExpanded = expandedEmailId === mail.id;
+                      return (
+                        <div key={mail.id} className="p-2.5 bg-slate-950 border border-slate-850 rounded-xl space-y-2 transition-all">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedEmailId(isExpanded ? null : mail.id)}
+                            className="w-full text-left flex flex-col gap-1 focus:outline-none"
+                          >
+                            <div className="flex justify-between items-center text-[8px] text-gray-500 font-mono w-full">
+                              <span>Destinataire: {mail.to}</span>
+                              <span className="flex items-center gap-1">
+                                <span className={mail.sentReal ? "text-emerald-400 font-bold" : "text-gray-500"}>
+                                  {mail.sentReal ? "Envoi SMTP Réussi ✓" : "Simulé ✉"}
+                                </span>
+                                <span>• {new Date(mail.sentAt).toLocaleTimeString("fr-FR")}</span>
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between w-full">
+                              <h4 className="font-bold text-gray-200 text-[10px] leading-tight hover:text-[#39b54a] transition-colors">{mail.subject}</h4>
+                              <span className="text-[9px] text-[#39b54a] font-bold ml-2 shrink-0">
+                                {isExpanded ? "▲ Réduire" : "▼ Déplier"}
+                              </span>
+                            </div>
+                          </button>
+
+                          {isExpanded && (
+                            <div className="pt-2 border-t border-slate-850 space-y-2">
+                              <div 
+                                className="bg-white text-slate-900 rounded-xl p-3 max-h-60 overflow-y-auto text-[10px] space-y-2 shadow-inner border border-slate-100"
+                                dangerouslySetInnerHTML={{ __html: mail.html }}
+                              />
+                              <div className="p-2 bg-slate-900/60 rounded-xl text-[10px] text-gray-400 text-center font-mono italic">
+                                Identifiant : {mail.id}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* SMS Alert lists */}
+              <div className="space-y-2.5 pt-1">
+                <span className="text-[9px] uppercase font-black text-gray-400 tracking-wider font-mono block">
+                  SMS d'alertes propagés (+261387203022 et +261330910425)
+                </span>
+
+                {systemLogs.sms.length === 0 ? (
+                  <p className="text-[10px] text-gray-500 italic p-2 bg-slate-950 rounded">
+                    Aucun SMS d'alerte émis pour le moment.
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {systemLogs.sms.map((sms) => (
+                      <div key={sms.id} className="p-2.5 bg-slate-950 border border-slate-850 rounded-xl space-y-1">
+                        <div className="flex justify-between text-[8px] text-gray-500 font-mono">
+                          <span>Dest: {sms.to}</span>
+                          <span>{new Date(sms.sentAt).toLocaleTimeString("fr-FR")}</span>
+                        </div>
+                        <p className="text-gray-300 text-[10px] leading-snug">{sms.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ACCOUNT IS LOGGED IN BUT IN OUT-STANDING STATES (pending_payment / pending_verification / rejected) */}
-        {currentUser && currentUser.status !== "verified" && (
+        {currentUser && currentUser.status !== "verified" && currentUser.status !== "admin" && (
           <div className="space-y-4">
             
             {/* 1. STATE: pending_payment - THE PAY-WALL SUBSCRIPTION SELECTOR AT ACTIVATION */}
@@ -2285,190 +2709,6 @@ export default function App() {
 
           </div>
         )}
-
-        {/* -------------------- LEGENDARY INTERACTIVE ADMIN / TEST PANEL (FOR grading & sandbox debugging) -------------------- */}
-        <div className="pt-8 border-t border-slate-900">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-            <button
-              onClick={() => { setIsAdminPanelOpen(!isAdminPanelOpen); synth.playPing(); }}
-              className="w-full bg-slate-850 px-4 py-3 flex items-center justify-between text-xs font-black uppercase text-gray-300 tracking-wider hover:bg-slate-800"
-            >
-              <div className="flex items-center gap-2">
-                <Settings className="w-4 h-4 text-[#39b54a]" />
-                <span>Console Administrateur (Test & Démo)</span>
-              </div>
-              <span className="text-[10px] font-mono font-normal bg-[#39b54a]/10 text-[#39b54a] px-2 py-0.5 rounded-full">
-                SIMULATEUR
-              </span>
-            </button>
-
-            {isAdminPanelOpen && (
-              <div className="p-4 bg-slate-950 space-y-4 text-xs">
-                <p className="text-[10px] text-gray-400 leading-normal">
-                  ⚠️ <strong>OUTIL DE DISPENSATION DES TESTS :</strong> Utilisez cette section pour approuver ou rejeter instantanément les transactions de vos inscrits directement depuis le simulateur, voir les e-mails virtuels envoyés à <strong>ronanswerdna@gmail.com</strong> et les SMS reçus par <strong>+261330910425</strong>.
-                </p>
-
-                {/* Sub-panel 1: Logged users & action toggles */}
-                <div className="space-y-2">
-                  <span className="text-[9px] uppercase font-black text-gray-500 block font-mono">LISTE DES INSCRIPTIONS ET STATUTS</span>
-                  
-                  {systemLogs.users.length === 0 ? (
-                    <p className="text-[10px] text-gray-600 italic">Aucun inscrit enregistré pour le moment. Veuillez remplir le formulaire d'inscription ci-dessus.</p>
-                  ) : (
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {systemLogs.users.map((usr) => (
-                        <div key={usr.id} className="p-3 bg-slate-900 rounded-xl border border-slate-800 flex flex-col gap-2">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <strong className="text-white block">{usr.name} (@{usr.username})</strong>
-                              <span className="text-[10px] text-gray-400 font-mono block">Tel: {usr.phone} | Email: {usr.email}</span>
-                            </div>
-                            <span className={`text-[9px] font-black font-mono border px-2 py-0.5 rounded uppercase ${
-                              usr.status === "verified" ? "bg-emerald-950 border-emerald-800 text-[#39b54a]" :
-                              usr.status === "pending_verification" ? "bg-amber-950 border-amber-800 text-amber-500 animate-pulse" :
-                              usr.status === "rejected" ? "bg-rose-950 border-rose-900 text-rose-500" :
-                              "bg-slate-950 border-slate-800 text-gray-500"
-                            }`}>
-                              {usr.status}
-                            </span>
-                          </div>
-
-                          {usr.paymentDetails && (
-                            <div className="p-2 bg-slate-950 rounded-lg text-[10px] text-gray-300 font-mono">
-                              <strong>Détails Transfert :</strong> {usr.paymentDetails.planName} ({usr.paymentDetails.price} Ar via {usr.paymentDetails.network})
-                              <br />
-                              <strong>Code Réf :</strong> {usr.paymentDetails.transactionRef} (Exp: {usr.paymentDetails.senderPhone})
-                            </div>
-                          )}
-
-                          <div className="flex gap-2">
-                            <button
-                              onClick={async () => {
-                                await handleAdminBypassAction(usr.id, "approve");
-                              }}
-                              className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-1.5 px-2 rounded-lg text-[10px]"
-                            >
-                              Approuver ✅ (VIP)
-                            </button>
-                            <button
-                              onClick={async () => {
-                                await handleAdminBypassAction(usr.id, "reject");
-                              }}
-                              className="flex-1 bg-rose-700 hover:bg-rose-800 text-white font-bold py-1.5 px-2 rounded-lg text-[10px]"
-                            >
-                              Rejeter (Rejet) ❌
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Sub-panel 2: Simulated emails database box with click action links */}
-                <div className="space-y-2 pt-2 border-t border-slate-900">
-                  <span className="text-[9px] uppercase font-black text-gray-500 block font-mono">
-                    BOÎTE DE RÉCEPTION EMAIL VIRTUELLE (ronanswerdna@gmail.com)
-                  </span>
-
-                  {systemLogs.emails.length === 0 ? (
-                    <p className="text-[10px] text-gray-600 italic">Boîte aux lettres vide. Un email sera envoyé ici dès qu'un client soumet une preuve de paiement.</p>
-                  ) : (
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {systemLogs.emails.map((mail, mailIdx) => (
-                        <div key={mail.id} className="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
-                          <div className="flex justify-between text-[10px] text-gray-500 font-mono">
-                            <span>De: System Predictor</span>
-                            <span>{new Date(mail.sentAt).toLocaleTimeString("fr-FR")}</span>
-                          </div>
-                          <h4 className="font-bold text-white text-[11px]">{mail.subject}</h4>
-                          
-                          <div className="p-2 bg-slate-950 rounded-lg text-[10px] text-gray-300 overflow-x-auto font-mono max-h-32 border border-slate-900">
-                            {/* Render sanitized inner content description mock up */}
-                            <span className="font-sans font-bold text-yellow-500 text-[10px] uppercase block tracking-wider mb-2">
-                              === TEXTE DU MAIL ENVOYÉ ===
-                            </span>
-                            <div className="space-y-1 block text-[10px] leading-relaxed">
-                              <span><strong>Félicitations pour inscription en attente :</strong></span>
-                              <br />
-                              <span>Veuillez valider ou rejeter les critères de transaction de l'inscrit pour débloquer son API premium sur l'URL d'activation !</span>
-                            </div>
-                            
-                            {/* Fast click action triggers */}
-                            <div className="flex gap-2.5 mt-3 pt-2.5 border-t border-slate-900">
-                              <a
-                                href={`/api/admin/verify?userId=${mail.subject.split(" ").pop() || ""}&action=approve`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-block bg-[#39b54a] text-black font-black text-[9px] px-2.5 py-1.5 rounded uppercase hover:opacity-80"
-                                onClick={() => setTimeout(fetchSystemLogs, 1000)}
-                              >
-                                Approuver dans navigateur 🔗
-                              </a>
-                              <a
-                                href={`/api/admin/verify?userId=${mail.subject.split(" ").pop() || ""}&action=reject`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-block bg-rose-600 text-white font-black text-[9px] px-2.5 py-1.5 rounded uppercase hover:opacity-80"
-                                onClick={() => setTimeout(fetchSystemLogs, 1000)}
-                              >
-                                Rejeter dans navigateur 🔗
-                              </a>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Sub-panel 3: SMS records received by Ratsimazafy */}
-                <div className="space-y-2 pt-2 border-t border-slate-900">
-                  <span className="text-[9px] uppercase font-black text-gray-500 block font-mono">
-                    SMS REÇUS SUR LE NUMÉRO +261330910425
-                  </span>
-
-                  {systemLogs.sms.length === 0 ? (
-                    <p className="text-[10px] text-gray-600 italic">Aucun SMS d'inscription ou d'alerte n'a été propagé pour le moment.</p>
-                  ) : (
-                    <div className="space-y-1.5 max-h-36 overflow-y-auto">
-                      {systemLogs.sms.map((msg) => (
-                        <div key={msg.id} className="p-2 bg-slate-905 bg-slate-900 rounded-xl border border-slate-850 flex items-start gap-2">
-                          <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                          <div className="flex-1 font-mono text-[10px]">
-                            <div className="flex justify-between text-gray-500 font-bold mb-0.5">
-                              <span>Destinataire: {msg.to}</span>
-                              <span>{new Date(msg.sentAt).toLocaleTimeString("fr-FR")}</span>
-                            </div>
-                            <p className="text-gray-200 bg-slate-950 p-2 rounded-lg border border-slate-900">{msg.text}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Manual flush database logs */}
-                <button
-                  onClick={async () => {
-                    localStorage.removeItem("bet261_current_user");
-                    setCurrentUser(null);
-                    setReport(null);
-                    setRegForm({ username: "", name: "", email: "", phone: "", password: "" });
-                    setSenderPhone("");
-                    setTransactionRef("");
-                    synth.playPing();
-                    alert("Simulateur rafraîchi et réinitialisé ! Rejoignez l'inscription.");
-                  }}
-                  className="w-full bg-slate-800 text-gray-400 hover:bg-slate-700 py-2.5 rounded-lg flex items-center justify-center font-bold text-[10px] tracking-wider uppercase"
-                >
-                  <RotateCcw className="w-4.5 h-4.5 text-[#39b54a]" />
-                  <span>Réinitialiser les cookies et reprendre l'inscription</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
 
       </main>
 

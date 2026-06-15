@@ -133,9 +133,10 @@ async function startServer() {
       users.push(newUser);
       writeDb(USERS_FILE, users);
 
-      // Trigger automatic simulated SMS to Ratsimazafy's phone (+261330910425) as requested
+      // Trigger automatic simulated SMS to both numbers as requested
       const smsMessage = `[Bet261 App] Nouvelle inscription : ${name} CLI, Tél : ${phone}, Email: ${email}. En attente de choix de formule.`;
       sendSmsSimulated("+261330910425", smsMessage);
+      sendSmsSimulated("+261387203022", smsMessage);
 
       // Trigger rich HTML inscription notification email to 'ronanswerdna@gmail.com'
       const emailSubject = `[Inscription Bet261] Nouvel utilisateur inscrit : ${name}`;
@@ -199,14 +200,69 @@ async function startServer() {
       `;
       sendEmail("ronanswerdna@gmail.com", emailSubject, emailHtml);
 
-      // Trigger automatic SMS alert to +261387203022 notifying of registration & email dispatch
+      // Trigger automatic SMS alert notifying of registration & email dispatch
       const alertSmsMessage = `[Bet261 App Alert] Un nouvel utilisateur (${name}, Tél: ${phone}) s'est inscrit! Un email de notification a été envoyé à ronanswerdna@gmail.com.`;
+      sendSmsSimulated("+261330910425", alertSmsMessage);
       sendSmsSimulated("+261387203022", alertSmsMessage);
 
       return res.status(200).json({ 
         success: true, 
         message: "Inscription réussie.",
         user: { id: newUser.id, username: newUser.username, name: newUser.name, email: newUser.email, status: newUser.status }
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 1.5. User and Admin Connexion (Login)
+  app.post("/api/login", (req, res) => {
+    try {
+      const { username, password } = req.body;
+
+      if (!username || !password) {
+        return res.status(400).json({ error: "Tous les champs sont requis." });
+      }
+
+      // Check special admin logon credentials: Ronan Ra & 17022006
+      if (username === "Ronan Ra" && password === "17022006") {
+        return res.status(200).json({
+          success: true,
+          message: "Connexion administrateur réussie.",
+          user: {
+            id: "admin_ronan",
+            username: "Ronan Ra",
+            name: "Ronan Ra",
+            email: "ronanswerdna@gmail.com",
+            status: "admin"
+          }
+        });
+      }
+
+      // Normal user database lookup
+      const users = readDb(USERS_FILE);
+      const user = users.find(
+        (u: any) =>
+          u.username === username.toLowerCase().replace(/\s/g, "") &&
+          u.password === password
+      );
+
+      if (!user) {
+        return res.status(400).json({ error: "Identifiant ou mot de passe incorrect." });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Connexion réussie.",
+        user: {
+          id: user.id,
+          username: user.username,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          status: user.status,
+          paymentDetails: user.paymentDetails
+        }
       });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
@@ -244,9 +300,10 @@ async function startServer() {
       users[userIndex] = user;
       writeDb(USERS_FILE, users);
 
-      // Trigger SMS informing about payment submission
+      // Trigger SMS informing about payment submission to both numbers
       const smsMessage = `[Bet261 App] Dépôt reçu ! ${user.name} a soumis ${price} Ar via ${network}. Réf : ${transactionRef}. Vérifier l'email !`;
       sendSmsSimulated("+261330910425", smsMessage);
+      sendSmsSimulated("+261387203022", smsMessage);
 
       // Trigger rich HTML verification email to 'ronanswerdna@gmail.com'
       const baseUrl = getBaseUrl(req);
@@ -341,6 +398,7 @@ async function startServer() {
 
       // Trigger SMS informing about payment submission to notify owner (+261387203022) in addition to email notification
       const ownerPaymentSms = `[Bet261 App Alert] Un dépôt de ${price} Ar a été soumis par ${user.name} (Réf : ${transactionRef}). Fiche de validation envoyée à votre email: ronanswerdna@gmail.com.`;
+      sendSmsSimulated("+261330910425", ownerPaymentSms);
       sendSmsSimulated("+261387203022", ownerPaymentSms);
 
       return res.status(200).json({ 

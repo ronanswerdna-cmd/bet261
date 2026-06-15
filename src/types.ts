@@ -4,7 +4,7 @@ export interface RegisteredUser {
   name: string;
   email: string;
   phone: string;
-  status: 'pending_payment' | 'pending_verification' | 'verified' | 'rejected';
+  status: 'pending_payment' | 'pending_verification' | 'verified' | 'rejected' | 'admin';
   paymentDetails?: {
     network: 'MVOLA' | 'AIRTEL';
     senderPhone: string;
