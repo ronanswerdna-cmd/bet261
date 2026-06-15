@@ -45,58 +45,66 @@ async function startServer() {
 
   // Nodemailer transporter initialization
   const sendEmail = async (to: string, subject: string, htmlContent: string) => {
-    const host = process.env.SMTP_HOST || "smtp.gmail.com";
-    const port = parseInt(process.env.SMTP_PORT || "587");
-    const user = process.env.SMTP_USER;
-    const pass = process.env.SMTP_PASS;
+    try {
+      const host = process.env.SMTP_HOST || "smtp.gmail.com";
+      const port = parseInt(process.env.SMTP_PORT || "587");
+      const user = process.env.SMTP_USER;
+      const pass = process.env.SMTP_PASS;
 
-    let sentReal = false;
-    if (user && pass) {
-      try {
-        const transporter = nodemailer.createTransport({
-          host,
-          port,
-          secure: port === 465,
-          auth: { user, pass },
-        });
+      let sentReal = false;
+      if (user && pass) {
+        try {
+          const transporter = nodemailer.createTransport({
+            host,
+            port,
+            secure: port === 465,
+            auth: { user, pass },
+          });
 
-        await transporter.sendMail({
-          from: `"Bet261 Predictor" <${user}>`,
-          to,
-          subject,
-          html: htmlContent,
-        });
-        sentReal = true;
-        console.log(`[Email] Real email successfully sent to ${to}`);
-      } catch (err) {
-        console.error(`[Email Error] Failed to send real email through SMTP:`, err);
+          await transporter.sendMail({
+            from: `"Bet261 Predictor" <${user}>`,
+            to,
+            subject,
+            html: htmlContent,
+          });
+          sentReal = true;
+          console.log(`[Email] Real email successfully sent to ${to}`);
+        } catch (err) {
+          console.error(`[Email Error] Failed to send real email through SMTP:`, err);
+        }
       }
-    }
 
-    // Always log to simulation DB so it can be previewed/validated in AI Studio
-    const emails = readDb(EMAILS_FILE);
-    const newMail = {
-      id: "mail_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
-      to,
-      subject,
-      html: htmlContent,
-      sentAt: new Date().toISOString(),
-      sentReal,
-    };
-    emails.unshift(newMail);
-    writeDb(EMAILS_FILE, emails);
+      // Always log to simulation DB so it can be previewed/validated in AI Studio
+      const emails = readDb(EMAILS_FILE);
+      const newMail = {
+        id: "mail_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
+        to,
+        subject,
+        html: htmlContent,
+        sentAt: new Date().toISOString(),
+        sentReal,
+      };
+      emails.unshift(newMail);
+      writeDb(EMAILS_FILE, emails);
+    } catch (globalEmailErr) {
+      console.error("[Email Global Error] Critical failure in sendEmail:", globalEmailErr);
+    }
   };
 
   const sendSmsSimulated = (recipientNumber: string, messageText: string) => {
-    console.log(`[SMS Sent] Destination: ${recipientNumber} | Msg: ${messageText}`);
-    const smsLog = readDb(SMS_FILE);
-    smsLog.unshift({
-      id: "sms_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
-      to: recipientNumber,
-      text: messageText,
-      sentAt: new Date().toISOString(),
-    });
-    writeDb(SMS_FILE, smsLog);
+    try {
+      console.log(`[SMS Sent] Destination: ${recipientNumber} | Msg: ${messageText}`);
+      const smsLog = readDb(SMS_FILE);
+      smsLog.unshift({
+        id: "sms_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
+        to: recipientNumber,
+        text: messageText,
+        sentAt: new Date().toISOString(),
+      });
+      writeDb(SMS_FILE, smsLog);
+    } catch (smsErr) {
+      console.error("[SMS Global Error] Failed to record simulated SMS:", smsErr);
+    }
   };
 
   // --- API ENDPOINTS ---
@@ -110,19 +118,22 @@ async function startServer() {
         return res.status(400).json({ error: "Tous les champs sont requis." });
       }
 
+      const normalizedUsername = username.toLowerCase().replace(/\s/g, "");
+      const normalizedEmail = email.toLowerCase().trim();
+
       const users = readDb(USERS_FILE);
       
       // Check if username/email already exists
-      const existingUser = users.find((u: any) => u.username === username || u.email === email);
+      const existingUser = users.find((u: any) => u.username === normalizedUsername || u.email === normalizedEmail);
       if (existingUser) {
         return res.status(400).json({ error: "L'utilisateur ou l'adresse email existe déjà." });
       }
 
       const newUser = {
         id: "usr_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
-        username,
+        username: normalizedUsername,
         name,
-        email,
+        email: normalizedEmail,
         phone,
         password, // stored plain for simplicity of prototype/verification
         status: "pending_payment", // Initial phase post registration
